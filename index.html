@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoastEverything AI – The AI that tells you the truth</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  body{background:#09090b;font-family:ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+  .glow{background:radial-gradient(60% 45% at 50% 0%,rgba(139,92,246,.3),transparent 70%),radial-gradient(35% 35% at 92% 8%,rgba(163,230,53,.14),transparent 70%)}
+  .glass{background:rgba(24,24,27,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08)}
+  .cursor::after{content:"▋";margin-left:2px;animation:b 1s steps(1) infinite}
+  @keyframes b{50%{opacity:0}}
+  @keyframes sh{to{background-position:-200% 0}}
+  .shimmer{background:linear-gradient(90deg,#27272a 25%,#3f3f46 50%,#27272a 75%);background-size:200% 100%;animation:sh 1.2s linear infinite}
+  @keyframes bar{from{transform:translateX(-100%)}to{transform:translateX(300%)}}
+  .bar{animation:bar 1s ease-in-out infinite}
+  @keyframes pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+  .pop{animation:pop .5s cubic-bezier(.2,.8,.2,1)}
+  @keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(163,230,53,.55)}50%{box-shadow:0 0 0 14px rgba(163,230,53,0)}}
+  .pulse{animation:pulseGlow 1.8s ease-out infinite}
+  .drop.over{border-color:#a3e635;background:rgba(163,230,53,.07)}
+  .tab[aria-selected=true]{background:#a3e635;color:#09090b}
+  button:focus-visible,label:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid #a3e635;outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){.cursor::after,.pulse,.shimmer,.bar,.pop{animation:none}}
+</style>
+</head>
+<body class="text-zinc-100 min-h-screen">
+<div class="glow fixed inset-0 pointer-events-none"></div>
+<canvas id="confetti" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+<main class="relative max-w-xl mx-auto px-4 py-8 space-y-4">
+  <header class="text-center">
+    <h1 class="text-3xl sm:text-5xl font-black tracking-tight">Roast<span class="text-lime-400">Everything</span> AI</h1>
+    <p class="text-zinc-400 text-sm mt-2">Drop a screenshot or text. Get the honest truth.</p>
+  </header>
+
+  <div id="unlockBanner" class="hidden rounded-2xl bg-lime-400 text-zinc-950 font-bold text-center py-2.5 pop">✅ Pro Pass unlocked. Now it gets unfair.</div>
+
+  <section id="drop" class="drop glass rounded-3xl p-3 space-y-3 border-2 border-transparent transition">
+    <div role="tablist" aria-label="Roast type" class="flex gap-1 bg-zinc-900/70 rounded-2xl p-1 text-sm font-semibold overflow-x-auto">
+      <button role="tab" class="tab flex-1 whitespace-nowrap rounded-xl px-3 py-2 transition" data-mode="setup" aria-selected="true">🔥 Setup</button>
+      <button role="tab" class="tab flex-1 whitespace-nowrap rounded-xl px-3 py-2 transition" data-mode="chat" aria-selected="false">💬 Chats &amp; DMs</button>
+      <button role="tab" class="tab flex-1 whitespace-nowrap rounded-xl px-3 py-2 transition" data-mode="code" aria-selected="false">💻 Code</button>
+      <button role="tab" class="tab flex-1 whitespace-nowrap rounded-xl px-3 py-2 transition" data-mode="other" aria-selected="false">🌐 Anything</button>
+    </div>
+    <label for="text" class="sr-only">Enter text</label>
+    <textarea id="text" rows="3" maxlength="8000" class="w-full rounded-2xl bg-zinc-900/80 border border-zinc-800 px-4 py-3 text-sm placeholder-zinc-500 resize-none"></textarea>
+    <div class="flex items-center gap-2">
+      <label for="file" class="cursor-pointer rounded-xl bg-zinc-800 hover:bg-zinc-700 px-3 py-2.5 text-sm font-semibold transition">📎 Add image</label>
+      <input id="file" type="file" accept="image/*" class="hidden">
+      <div id="chip" class="hidden items-center gap-2 rounded-xl bg-zinc-800 pl-1 pr-2 py-1 flex">
+        <img id="thumb" alt="Uploaded image preview" class="h-8 w-8 rounded-lg object-cover">
+        <button id="clearImg" class="text-zinc-400 hover:text-lime-400 text-sm" aria-label="Remove image">✕</button>
+      </div>
+      <button id="roastBtn" class="ml-auto rounded-xl bg-lime-400 text-zinc-950 font-extrabold px-5 py-2.5 hover:bg-lime-300 transition disabled:opacity-40">Roast it 🔥</button>
+    </div>
+    <p class="text-xs text-zinc-500 text-center">Drag &amp; drop an image anywhere on this panel</p>
+  </section>
+
+  <section id="loader" class="hidden glass rounded-3xl p-5 space-y-4 pop" aria-live="polite">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-full shimmer"></div>
+      <div class="flex-1 space-y-2"><div class="h-3 w-1/3 rounded shimmer"></div><div class="h-3 w-2/3 rounded shimmer"></div></div>
+    </div>
+    <div class="h-3 w-full rounded shimmer"></div><div class="h-3 w-4/5 rounded shimmer"></div>
+    <div class="h-1 rounded bg-zinc-800 overflow-hidden"><div class="bar h-full w-1/3 rounded bg-lime-400"></div></div>
+    <p id="termText" class="font-mono text-xs text-lime-400 cursor"></p>
+  </section>
+
+  <p id="error" role="alert" class="hidden rounded-2xl border border-red-500/40 bg-red-500/10 text-red-300 text-sm p-4"></p>
+
+  <section id="result" class="hidden space-y-4 pop">
+
+    <!-- FREE: simple text roast, no card -->
+    <div id="freeBox" class="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+      <p class="text-[10px] font-bold tracking-widest text-zinc-500 mb-2">FREE ROAST</p>
+      <p id="freeText" class="text-[15px] leading-relaxed whitespace-pre-line"></p>
+    </div>
+
+    <!-- PRO: high-end share card (blurred until payment is verified) -->
+    <div class="space-y-3">
+      <div class="relative overflow-hidden rounded-3xl">
+        <article id="card" class="rounded-3xl border border-white/10 p-5" style="background:radial-gradient(circle at 100% 0,rgba(139,92,246,.28),transparent 55%),#18181b">
+          <div class="flex items-center justify-between mb-4">
+            <div class="font-black tracking-tight">Roast<span class="text-lime-400">Everything</span> AI</div>
+            <span id="modeTag" class="text-xs font-bold rounded-full bg-white/10 px-2.5 py-1"></span>
+          </div>
+
+          <div class="flex gap-3">
+            <div id="evidence" class="hidden w-28 sm:w-36 shrink-0">
+              <div id="evImg" class="h-28 sm:h-36 rounded-2xl border border-white/10" style="background-size:cover;background-position:center"></div>
+              <p class="text-[10px] font-bold tracking-widest text-zinc-500 mt-1.5">EXHIBIT A</p>
+            </div>
+            <div class="flex-1 min-w-0 space-y-2">
+              <div class="rounded-2xl bg-zinc-800 p-3">
+                <p class="text-[10px] font-bold tracking-widest text-zinc-400">CRINGE LEVEL</p>
+                <p id="cringeVal" class="text-2xl font-black text-lime-400">–</p>
+                <div class="h-1.5 rounded bg-zinc-700 mt-1"><div id="cringeBar" class="h-full rounded bg-lime-400" style="width:0"></div></div>
+              </div>
+              <div class="rounded-2xl bg-zinc-800 p-3">
+                <p class="text-[10px] font-bold tracking-widest text-zinc-400">VIBE</p>
+                <span id="vibeVal" class="inline-block mt-1.5 rounded-full bg-violet-500/20 border border-violet-400/40 text-violet-300 text-sm font-extrabold px-3 py-1 leading-tight">–</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-white/10 pt-4">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <h3 class="text-xs font-bold tracking-widest text-violet-400">ULTIMATE 10-LINE DEEP-DIVE</h3>
+              <span id="rank" class="hidden rounded-full bg-lime-400 text-zinc-950 text-xs font-black px-3 py-1"></span>
+            </div>
+            <ol id="proLines" class="space-y-2"></ol>
+            <p id="proLoading" class="hidden font-mono text-xs text-lime-400 cursor" data-html2canvas-ignore>Writing the uncensored roast</p>
+          </div>
+
+          <p class="mt-4 text-[11px] text-zinc-500 text-center">Get roasted → RoastEverything AI</p>
+        </article>
+
+        <div id="lock" class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/30 pointer-events-none" role="img" aria-label="Locked" data-html2canvas-ignore>
+          <span class="text-6xl drop-shadow-lg">🔒</span>
+          <span class="text-xs font-black tracking-widest text-white drop-shadow">PRO SHARE-CARD</span>
+        </div>
+      </div>
+
+      <a id="unlockBtn" href="#" class="pulse block text-center rounded-2xl bg-gradient-to-r from-lime-400 to-violet-500 text-zinc-950 font-black py-4 px-3 text-base sm:text-lg hover:brightness-110 transition">🔥 Unlock Pro Share-Card &amp; Deep-Dive for €1.99 (Lifetime Access)</a>
+      <p id="unlockNote" class="text-xs text-zinc-500 text-center">Secure payment via Stripe. You'll be sent back here automatically.</p>
+
+      <button id="proBtn" class="hidden w-full rounded-2xl bg-lime-400 text-zinc-950 font-extrabold py-3 hover:bg-lime-300 transition">Retry Pro Roast</button>
+      <button id="dlBtn" class="w-full rounded-2xl bg-violet-500 text-white font-extrabold py-3.5 hover:bg-violet-400 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>🔒 Download Share Card (Pro)</button>
+    </div>
+  </section>
+
+  <footer class="text-center text-xs text-zinc-600 pt-4">Pure entertainment. Your input is sent to Google Gemini for analysis.
+    <div class="mt-2"><a href="#impressum" id="impLink" class="underline hover:text-zinc-400">Impressum / Legal Notice</a></div>
+  </footer>
+
+  <section id="impressum" class="hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 text-xs text-zinc-400 space-y-2">
+    <h2 class="text-sm font-bold text-zinc-200">Impressum / Legal Notice</h2>
+    <p><b>Angaben gemäß § 5 DDG</b><br>
+    DEIN VOLLER NAME<br>
+    DEINE STRASSE HAUSNUMMER<br>
+    DEINE PLZ DEIN ORT<br>
+    Deutschland</p>
+    <p><b>Kontakt</b><br>E-Mail: DEINE@EMAIL.DE</p>
+    <p><b>Zahlungen</b><br>Payments are processed by Stripe. We do not store your payment data.</p>
+    <p><b>Datenschutz / Privacy</b><br>Text and images you submit are sent to Google Gemini to generate the roast and are not stored by us. Your browser stores a payment reference (localStorage) to remember your unlock.</p>
+    <p><b>Haftung für Inhalte</b><br>This site is satire and entertainment only. Roasts are AI-generated and not meant as factual statements.</p>
+    <button id="impClose" class="underline hover:text-zinc-200">Close</button>
+  </section>
+</main>
+
+<script>
+/* ===== CONFIG ===== */
+const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/9B66oHcR492ZdVr9Dp7bW00"; // Stripe Payment Link, redirect after payment: https://DEINE-DOMAIN/?session_id={CHECKOUT_SESSION_ID}
+const VERIFY_ENDPOINT = "/api/verify";
+document.addEventListener("click", e => {
+  if (e.target.id === "impLink") { e.preventDefault(); document.getElementById("impressum").classList.remove("hidden"); document.getElementById("impressum").scrollIntoView({ behavior: "smooth" }); }
+  if (e.target.id === "impClose") document.getElementById("impressum").classList.add("hidden");
+});
+if (location.hash === "#impressum") window.addEventListener("load", () => document.getElementById("impressum").classList.remove("hidden"));
+const GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"];
+const MAX_OUTPUT_TOKENS = 400;
+const MAX_IMG_SIDE = 800;
+const geminiUrl = m => "/api/gemini?model=" + encodeURIComponent(m); // key lives only on the server
+
+const MODES = {
+  setup: { ph: "Optional: describe your setup (PC, mic, lighting...) or add a photo.", ctx: "A gaming/creator setup or hardware: cable chaos, ancient GPUs, cheap mics, RGB overload, posture, cleanliness." },
+  chat: { ph: "Paste your chat log, DMs or bio here...", ctx: "A chat log, DMs or a bio: cringe flirting, double texting, dry replies, overconfidence, walls of text, emoji abuse." },
+  code: { ph: "Paste your code, resume or skill list here...", ctx: "Code, a resume or skills: spaghetti code, variable names, no tests, copy-pasted Stack Overflow, buzzwords." },
+  other: { ph: "Paste anything you want roasted, or add an image...", ctx: "Anything (photo, text, plan, outfit, life decision). Figure out what it is and roast it accordingly." }
+};
+const MODE_TAG = { setup: "🔥 Setup & Hardware", chat: "💬 Chats & DMs", code: "💻 Code & Skills", other: "🌐 Anything" };
+const SYS = "You are RoastEverything, the most cynical, witty and precise roast AI in the world. You write exclusively in English, straight to the point, with dry humor and concrete references to details in the input (never generic). You roast the thing, text or setup and the decisions behind it, never origin, religion, gender, looks, illness, disability or other group traits. No intro, no markdown, no explanations.";
+const FREE_TASK = 'Roast the input in exactly 2 short, brutally funny sentences. Reply ONLY with JSON: {"roast":"sentence1 sentence2"}';
+const PRO_TASK = 'Deliver an uncensored, extremely detailed deep roast. Keep every line under 14 words. Reply ONLY with JSON: {"rank":"funny rank title, max 4 words","cringe":integer 0-100,"vibe":"2-4 word vibe label, e.g. Complete Disaster","lines":["exactly 10 harsh, funny one-sentence lines, each referencing the input"]}';
+const PLACEHOLDER = ["This isn't a bug in the system. This is actually you.", "Even autocorrect gave up at this point.", "You have so much potential it has to be on purpose.", "If mediocrity were a job, you'd have seniority.", "Confidence is great, but this raises questions.", "And now comes the part that really hurts.", "Somewhere a professional is crying about this.", "You didn't hit rock bottom, you renovated it.", "History will remember this. Reluctantly.", "And that's only the beginning of the damage."];
+const DEMO = { rank: "Certified Disaster", cringe: 94, vibe: "Total Disaster", lines: PLACEHOLDER };
+
+/* ===== State & helpers ===== */
+const $ = id => document.getElementById(id);
+const show = (id, v = true) => $(id).classList.toggle("hidden", !v);
+let mode = "setup", imageB64 = null, imageURL = null, free = null, pro = null, termTimer = null, proBusy = false, exporting = false;
+let unlocked = false; // set to true ONLY after the server confirmed a paid Stripe session
+const isUnlocked = () => unlocked;
+const clamp = n => Math.max(0, Math.min(100, Math.round(Number(n) || 69)));
+const parseJSON = raw => JSON.parse(raw.replace(/```json|```/g, "").trim());
+const errMsg = e => e instanceof SyntaxError ? "The AI response was malformed. Please try again." : (e.message || "Something went wrong. Please try again.");
+function showError(m) { $("error").textContent = m; show("error"); }
+function save() { try { sessionStorage.setItem("re_state", JSON.stringify({ mode, text: $("text").value, img: imageURL, free, pro })); } catch (e) {} }
+$("text").placeholder = MODES.setup.ph;
+
+$("unlockBtn").href = STRIPE_PAYMENT_LINK;
+$("unlockBtn").addEventListener("click", e => {
+  if (!/^https?:\/\//.test(STRIPE_PAYMENT_LINK)) { e.preventDefault(); showError("Stripe payment link is not configured yet (STRIPE_PAYMENT_LINK)."); }
+  else save();
+});
+
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  mode = t.dataset.mode;
+  document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+  $("text").placeholder = MODES[mode].ph;
+}));
+
+/* ===== Image upload (compressed to max 800px via canvas) ===== */
+const drop = $("drop");
+["dragenter", "dragover"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => handleFile(e.dataTransfer.files[0]));
+$("file").addEventListener("change", e => handleFile(e.target.files[0]));
+$("clearImg").addEventListener("click", () => { imageB64 = imageURL = null; show("chip", false); $("file").value = ""; });
+function handleFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) return showError("That's not an image. Use the text box for text.");
+  show("error", false);
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, MAX_IMG_SIDE / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * s)); c.height = Math.max(1, Math.round(img.height * s));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      setImage(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => showError("The image could not be read.");
+    img.src = r.result;
+  };
+  r.onerror = () => showError("The file could not be read.");
+  r.readAsDataURL(file);
+}
+function setImage(url) { imageURL = url; imageB64 = url.split(",")[1]; $("thumb").src = url; show("chip"); }
+function hasInput() { return !!(imageB64 || $("text").value.trim()); }
+
+/* ===== Gemini (maxOutputTokens 400, retry, model fallback) ===== */
+async function gemini(task) {
+  const txt = $("text").value.trim();
+  const parts = [{ text: task + "\n\nContext: " + MODES[mode].ctx + (txt ? "\n\nINPUT TEXT:\n" + txt : "\n\n(Only an image was sent.)") }];
+  if (imageB64) parts.push({ inline_data: { mime_type: "image/jpeg", data: imageB64 } });
+  const mk = t => JSON.stringify({ system_instruction: { parts: [{ text: SYS }] }, contents: [{ parts }], generationConfig: { maxOutputTokens: t, temperature: 1, responseMimeType: "application/json" } });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let lastErr = "", tok = MAX_OUTPUT_TOKENS;
+  for (const model of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let res, d;
+      try {
+        res = await fetch(geminiUrl(model), { method: "POST", headers: { "Content-Type": "application/json" }, body: mk(tok) });
+        d = await res.json().catch(() => ({}));
+      } catch (e) { lastErr = "Network error: could not reach the Gemini API."; await sleep(1000); continue; }
+      if (res.ok) {
+        const cand = d.candidates && d.candidates[0];
+        const out = cand && cand.content && cand.content.parts ? cand.content.parts.map(p => p.text || "").join("").trim() : "";
+        const truncated = cand && cand.finishReason === "MAX_TOKENS";
+        if (truncated && tok < MAX_OUTPUT_TOKENS * 3) { tok *= 3; continue; } // thinking models can eat the budget
+        if (out) return out;
+        throw new Error("The AI returned nothing (possibly a safety filter). Try a different input.");
+      }
+      lastErr = d.error && d.error.message ? d.error.message : "HTTP " + res.status;
+      if (res.status === 404) break;
+      if ([429, 500, 502, 503, 504].includes(res.status)) { await sleep(1000 * (attempt + 1)); continue; }
+      throw new Error("Gemini error: " + lastErr);
+    }
+  }
+  throw new Error("Gemini is overloaded right now. Please try again in a minute. (" + lastErr + ")");
+}
+
+/* ===== Loader ===== */
+const LINES = ["Analyzing cringe factor...", "Reviewing life choices...", "Collecting evidence...", "Calculating embarrassment index...", "Consulting the ego tribunal...", "Sharpening the punchlines..."];
+function startTerm() { show("loader"); let i = 0; $("termText").textContent = "> " + LINES[0]; clearInterval(termTimer); termTimer = setInterval(() => { i = (i + 1) % LINES.length; $("termText").textContent = "> " + LINES[i]; }, 700); }
+function stopTerm() { clearInterval(termTimer); show("loader", false); }
+
+/* ===== Rendering ===== */
+function fillLines(arr) {
+  const ol = $("proLines"); ol.innerHTML = "";
+  arr.forEach((t, i) => {
+    const li = document.createElement("li"), n = document.createElement("span"), s = document.createElement("span");
+    li.className = "flex gap-3 text-sm text-zinc-200"; n.className = "text-lime-400 font-black w-5 shrink-0"; n.textContent = i + 1; s.textContent = t;
+    li.append(n, s); ol.appendChild(li);
+  });
+}
+function renderCard() {
+  if (!free) return;
+  const u = isUnlocked(), d = u ? pro : DEMO;
+
+  // Free text roast (simple box)
+  $("freeText").textContent = free.roast;
+
+  // Pro card content (demo values while locked, real values once unlocked)
+  $("modeTag").textContent = MODE_TAG[mode];
+  show("evidence", !!imageURL);
+  if (imageURL) $("evImg").style.backgroundImage = 'url("' + imageURL + '")';
+  $("cringeVal").textContent = d ? d.cringe + "%" : "–";
+  $("cringeBar").style.width = d ? d.cringe + "%" : "0";
+  $("vibeVal").textContent = d ? d.vibe : "–";
+  if (d) { $("rank").textContent = "🏆 " + d.rank; show("rank"); fillLines(d.lines); } else { show("rank", false); $("proLines").innerHTML = ""; }
+  show("proLoading", u && !pro && proBusy);
+
+  // Paywall: blur + lock + unlock button
+  ["blur-md", "select-none", "pointer-events-none"].forEach(c => $("card").classList.toggle(c, !u));
+  $("card").setAttribute("aria-hidden", String(!u));
+  show("lock", !u); show("unlockBtn", !u); show("unlockNote", !u);
+  if (!u) show("proBtn", false);
+
+  // Download button
+  const ready = u && !!pro && !exporting;
+  $("dlBtn").disabled = !ready;
+  $("dlBtn").textContent = exporting ? "Rendering..." : (u ? "📥 Download Share Card" : "🔒 Download Share Card (Pro)");
+  show("result");
+}
+
+/* ===== Free roast ===== */
+$("roastBtn").addEventListener("click", async () => {
+  if (!hasInput()) return showError("Enter some text or add an image first. No material, no roast.");
+  show("error", false); show("result", false); $("roastBtn").disabled = true; startTerm();
+  try {
+    const d = parseJSON(await gemini(FREE_TASK));
+    const roast = (Array.isArray(d.roast) ? d.roast.join("\n") : String(d.roast || "")).trim();
+    if (!roast) throw new Error("The AI returned an empty roast. Please try again.");
+    free = { roast }; pro = null; save(); renderCard();
+    if (isUnlocked()) runPro();
+  } catch (e) { showError(errMsg(e)); }
+  stopTerm(); $("roastBtn").disabled = false;
+});
+
+/* ===== Pro roast (only generated after verified payment) ===== */
+async function runPro() {
+  if (!free || proBusy || !isUnlocked()) return;
+  proBusy = true; show("proBtn", false); show("error", false); renderCard();
+  try {
+    const d = parseJSON(await gemini(PRO_TASK));
+    const lines = (Array.isArray(d.lines) ? d.lines : []).map(String).slice(0, 10);
+    if (!lines.length) throw new Error("The AI returned an empty roast. Please try again.");
+    pro = { rank: String(d.rank || "Certified Disaster"), cringe: clamp(d.cringe), vibe: String(d.vibe || "Total Disaster"), lines };
+    save();
+  } catch (e) { showError(errMsg(e)); show("proBtn"); }
+  proBusy = false; renderCard();
+}
+$("proBtn").addEventListener("click", runPro);
+
+/* ===== Download (Pro only) ===== */
+$("dlBtn").addEventListener("click", async () => {
+  if (!isUnlocked() || !pro) return;
+  if (!window.html2canvas) return showError("The export library failed to load. Please reload the page.");
+  exporting = true; renderCard();
+  try {
+    const c = await html2canvas($("card"), { backgroundColor: "#09090b", scale: 2, useCORS: true });
+    c.toBlob(b => {
+      if (!b) return showError("Could not create the image. Please try again.");
+      const a = document.createElement("a"); a.download = "roasteverything-card.png"; a.href = URL.createObjectURL(b);
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, "image/png");
+  } catch (e) { showError("Could not create the image. Please try again."); }
+  exporting = false; renderCard();
+});
+
+/* ===== Confetti ===== */
+function confetti() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = $("confetti"), x = cv.getContext("2d"); cv.width = innerWidth; cv.height = innerHeight;
+  const cols = ["#a3e635", "#84cc16", "#bef264", "#8b5cf6"];
+  const ps = Array.from({ length: 150 }, () => ({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * .5, vx: (Math.random() - .5) * 4, vy: 2 + Math.random() * 5, s: 5 + Math.random() * 7, c: cols[Math.floor(Math.random() * 4)], r: Math.random() * 6 }));
+  const t0 = performance.now();
+  (function f(t) {
+    x.clearRect(0, 0, cv.width, cv.height);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.r += .1; x.save(); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * .6); x.restore(); });
+    if (t - t0 < 3500) requestAnimationFrame(f); else x.clearRect(0, 0, cv.width, cv.height);
+  })(t0);
+}
+
+/* ===== Unlock logic (server-verified Stripe session) ===== */
+async function verifySession(id) {
+  try {
+    const r = await fetch(VERIFY_ENDPOINT + "?session_id=" + encodeURIComponent(id), { cache: "no-store" });
+    if (r.status >= 500) return null; // server problem: unknown, keep the stored session
+    const d = await r.json().catch(() => ({}));
+    return r.ok && d.paid === true;
+  } catch (e) { return null; } // network problem
+}
+
+(async function init() {
+  const params = new URLSearchParams(location.search);
+  const urlSid = params.get("session_id");
+  let sid = null;
+  if (urlSid) {
+    sid = urlSid;
+    try { localStorage.setItem("re_session", sid); } catch (e) {}
+    history.replaceState(null, "", location.pathname);
+  } else {
+    try { sid = localStorage.getItem("re_session"); } catch (e) {}
+  }
+
+  // Restore the state from before the Stripe visit
+  let st = null;
+  try { st = JSON.parse(sessionStorage.getItem("re_state") || "null"); } catch (e) {}
+  if (st) {
+    mode = MODES[st.mode] ? st.mode : "setup";
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.mode === mode));
+    $("text").value = st.text || ""; $("text").placeholder = MODES[mode].ph;
+    if (st.img) setImage(st.img);
+    if (st.free) { free = st.free; pro = st.pro || null; renderCard(); }
+  }
+
+  // Verify the payment on the server
+  if (sid) {
+    const ok = await verifySession(sid);
+    if (ok === true) {
+      unlocked = true;
+      if (urlSid) { show("unlockBanner"); confetti(); }
+    } else if (ok === false) {
+      try { localStorage.removeItem("re_session"); } catch (e) {}
+      if (urlSid) showError("Payment could not be verified. If you were charged, please contact support.");
+    } else if (urlSid) {
+      showError("Could not verify your payment right now. Please reload this page in a moment.");
+    }
+  }
+
+  if (free) renderCard();
+  if (unlocked && free && !pro) runPro();
+})();
+</script>
+</body>
+</html>
